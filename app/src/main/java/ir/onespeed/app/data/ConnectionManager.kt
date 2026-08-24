@@ -17,13 +17,6 @@ private val FLAG_REGEX = Regex("[\uD83C\uDDE6-\uD83C\uDDFF]{2}")
 
 enum class VpnState { IDLE, CONNECTING, CONNECTED }
 
-/**
- * Thin bridge to the vendored connection engine (copied from dicodePing /
- * v2rayNG). We intentionally do NOT reimplement protocol parsing, VPN
- * plumbing, or ping — those are the proven, battle-tested pieces. This file
- * is just OneSpeed-specific glue: our subscription id, our server list
- * shape, our status callback.
- */
 object ConnectionManager {
     private const val SUB_ID = "onespeed"
 
@@ -36,15 +29,7 @@ object ConnectionManager {
         val guids = MmkvManager.decodeServerList(SUB_ID)
         return guids.mapNotNull { guid ->
             val profile = MmkvManager.decodeServerConfig(guid) ?: return@mapNotNull null
-
-            // The backend embeds plan/quota info (remaining days & volume) as a
-            // fake server entry with port == 1 and a non-routable host (e.g.
-            // "∞ انقضا"). It is metadata only — ApiService.extractPlan() already
-            // reads it for the dashboard stats. It must NEVER be imported as a
-            // connectable server, or "auto best" / manual selection can pick it
-            // and every connect attempt fails with "کانفیگ نامعتبر".
             if (profile.serverPort == "1") return@mapNotNull null
-
             val flagMatch = FLAG_REGEX.find(profile.remarks)
             val cleanName = profile.remarks.replace(FLAG_REGEX, "").replace(Regex("[◆❖✅]"), "").trim()
             ServerInfo(
@@ -70,6 +55,21 @@ object ConnectionManager {
     }
 
     fun connect(context: Context, guid: String) {
+        // DEBUG: shows exactly what's stored for this guid on-screen so we
+        // can see the real cause instead of guessing. Remove once fixed.
+        val profile = MmkvManager.decodeServerConfig(guid)
+        if (profile == null) {
+            android.widget.Toast.makeText(
+                context, "DEBUG: no profile stored for guid=$guid", android.widget.Toast.LENGTH_LONG,
+            ).show()
+        } else {
+            android.widget.Toast.makeText(
+                context,
+                "DEBUG: server=${profile.server} port=${profile.serverPort} type=${profile.configType} remarks=${profile.remarks}",
+                android.widget.Toast.LENGTH_LONG,
+            ).show()
+        }
+
         MmkvManager.setSelectServer(guid)
         LauncherManager.startService(context)
     }
@@ -78,7 +78,6 @@ object ConnectionManager {
         LauncherManager.stopService(context)
     }
 
-    /** Registers for the engine's status broadcasts. Call unregister in onDestroy. */
     fun registerStatusReceiver(context: Context, onState: (VpnState, String?) -> Unit): BroadcastReceiver {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
