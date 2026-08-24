@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OneSpeed</string>
+    <string name="action_cancel">لغو</string>
+    <string name="app_tile_first_use">ابتدا وارد سرویس شوید</string>
+    <string name="connection_running_task_left">در حال تست: %s</string>
+    <string name="notification_action_stop_v2ray">قطع اتصال</string>
+    <string name="permission_camera">دوربین</string>
+    <string name="permission_local_network">شبکه محلی</string>
+    <string name="permission_notification">اعلان‌ها</string>
+    <string name="subscription_update_progress">در حال بررسی %2$s: %1$s</string>
+    <string name="subscription_update_updating">در حال به‌روزرسانی: %1$s</string>
+    <string name="title_del_invalid_config">حذف کانفیگ‌های نامعتبر</string>
+    <string name="title_file_chooser">انتخاب فایل</string>
+    <string name="title_pref_auto_update_subscription">به‌روزرسانی خودکار</string>
+    <string name="title_real_ping_all_server">تست پینگ واقعی همه سرورها</string>
+    <string name="title_service_restart">راه‌اندازی مجدد سرویس</string>
+    <string name="title_sort_by_test_results">مرتب‌سازی بر اساس نتیجه تست</string>
+    <string name="toast_allow_insecure_deprecated">این سرور از اتصال رمزنگاری‌نشده استفاده می‌کند و پشتیبانی نمی‌شود.</string>
+    <string name="toast_config_file_invalid">کانفیگ نامعتبر است</string>
+    <string name="toast_permission_denied_for">دسترسی %1$s داده نشد</string>
+    <string name="toast_require_file_manager">لطفاً یک فایل‌منیجر نصب کنید</string>
+    <string name="toast_root_required">این قابلیت نیاز به دسترسی روت دارد</string>
+    <string name="toast_services_start">در حال شروع سرویس</string>
+    <string name="toast_services_stop">در حال قطع سرویس</string>
+    <string name="toast_warning_pref_proxysharing_short">اتصال از شبکه محلی مجاز است — فقط در شبکه‌ی مطمئن استفاده کنید</string>
+</resources>

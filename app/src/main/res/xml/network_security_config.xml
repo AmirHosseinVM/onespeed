@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- No cleartext (plain HTTP) anywhere, no exceptions. -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+
+    <!--
+    Optional but recommended: certificate pinning for your API domain so a
+    proxy tool (Charles/Burp/mitmproxy) can't intercept the sub.php response
+    even with a manually-installed CA on the device. Get the SPKI pin with:
+
+        openssl s_client -connect devfull.sbs:443 </dev/null 2>/dev/null \
+          | openssl x509 -pubkey -noout \
+          | openssl pkey -pubin -outform der \
+          | openssl dgst -sha256 -binary | base64
+
+    Then uncomment and fill in below (keep a backup pin for your next
+    certificate renewal, or renewals will lock everyone out):
+
+    <domain-config>
+        <domain includeSubdomains="true">devfull.sbs</domain>
+        <pin-set expiration="2027-01-01">
+            <pin digest="SHA-256">PASTE_YOUR_PIN_HERE=</pin>
+            <pin digest="SHA-256">PASTE_A_BACKUP_PIN_HERE=</pin>
+        </pin-set>
+    </domain-config>
+    -->
+</network-security-config>
