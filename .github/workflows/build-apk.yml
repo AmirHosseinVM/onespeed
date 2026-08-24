@@ -22,7 +22,7 @@ jobs:
         run: |
           mkdir -p app/libs
           curl -L --fail --retry 4 -o app/libs/libv2ray.aar \
-            https://github.com/patterniha/AndroidLibXrayLite/releases/download/v26.8.19-P/libv2ray.aar
+            https://github.com/2dust/AndroidLibXrayLite/releases/download/v26.7.28/libv2ray.aar
 
       - name: Decode signing key (only if configured in repo secrets)
         if: env.HAS_KEYSTORE == 'true'
