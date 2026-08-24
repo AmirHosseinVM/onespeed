@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.v2ray.ang"          // matches the vendored engine's package — do not change
+    namespace = "com.v2ray.ang"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "ir.onespeed.app" // our real published app id
+        applicationId = "ir.onespeed.app"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
@@ -31,8 +31,6 @@ android {
 
     buildTypes {
         release {
-            // No keystore configured yet? Falls back to the debug key so you
-            // still get an installable APK today.
             signingConfig = if (System.getenv("ONESPEED_KEYSTORE") != null)
                 signingConfigs.getByName("release") else signingConfigs.getByName("debug")
             isMinifyEnabled = true
@@ -46,7 +44,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
+    }
 
     buildFeatures { compose = true }
 
