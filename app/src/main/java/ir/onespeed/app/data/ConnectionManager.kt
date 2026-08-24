@@ -36,6 +36,15 @@ object ConnectionManager {
         val guids = MmkvManager.decodeServerList(SUB_ID)
         return guids.mapNotNull { guid ->
             val profile = MmkvManager.decodeServerConfig(guid) ?: return@mapNotNull null
+
+            // The backend embeds plan/quota info (remaining days & volume) as a
+            // fake server entry with port == 1 and a non-routable host (e.g.
+            // "∞ انقضا"). It is metadata only — ApiService.extractPlan() already
+            // reads it for the dashboard stats. It must NEVER be imported as a
+            // connectable server, or "auto best" / manual selection can pick it
+            // and every connect attempt fails with "کانفیگ نامعتبر".
+            if (profile.serverPort == "1") return@mapNotNull null
+
             val flagMatch = FLAG_REGEX.find(profile.remarks)
             val cleanName = profile.remarks.replace(FLAG_REGEX, "").replace(Regex("[◆❖✅]"), "").trim()
             ServerInfo(
