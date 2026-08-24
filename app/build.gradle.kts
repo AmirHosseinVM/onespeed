@@ -50,7 +50,10 @@ android {
         }
     }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 
     packaging {
         resources.excludes.add("META-INF/**")
@@ -71,6 +74,10 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
+    implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("io.coil-kt:coil-svg:2.7.0")
+    implementation("com.google.zxing:core:3.5.3")
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     implementation(libs.lifecycle.viewmodel.ktx)
