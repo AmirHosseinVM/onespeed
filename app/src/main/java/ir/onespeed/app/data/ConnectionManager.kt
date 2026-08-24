@@ -55,21 +55,6 @@ object ConnectionManager {
     }
 
     fun connect(context: Context, guid: String) {
-        // DEBUG: shows exactly what's stored for this guid on-screen so we
-        // can see the real cause instead of guessing. Remove once fixed.
-        val profile = MmkvManager.decodeServerConfig(guid)
-        if (profile == null) {
-            android.widget.Toast.makeText(
-                context, "DEBUG: no profile stored for guid=$guid", android.widget.Toast.LENGTH_LONG,
-            ).show()
-        } else {
-            android.widget.Toast.makeText(
-                context,
-                "DEBUG: server=${profile.server} port=${profile.serverPort} type=${profile.configType} remarks=${profile.remarks}",
-                android.widget.Toast.LENGTH_LONG,
-            ).show()
-        }
-
         MmkvManager.setSelectServer(guid)
         LauncherManager.startService(context)
     }

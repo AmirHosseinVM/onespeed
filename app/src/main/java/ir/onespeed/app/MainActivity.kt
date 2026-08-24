@@ -71,6 +71,19 @@ class MainActivity : ComponentActivity() {
                 val saved = DeviceIdService.getSavedToken(this@MainActivity)
                 if (saved != null) {
                     token = saved
+                    // Returning user: re-fetch and re-import before showing the
+                    // dashboard, otherwise the server list can be stale/out of
+                    // sync with what's actually stored, causing "invalid config"
+                    // on connect. Falls back to whatever is already cached if
+                    // the network call fails, so the app still opens offline.
+                    val deviceId = DeviceIdService.getDeviceId(this@MainActivity)
+                    when (val result = ApiService.fetchSub(deviceId, saved)) {
+                        is ApiResult.Success -> {
+                            ConnectionManager.importSub(result.rawBody)
+                            plan = result.plan
+                        }
+                        else -> { /* keep whatever was cached locally; Dashboard's refresh will retry */ }
+                    }
                     screen = Screen.Dashboard
                 } else {
                     screen = Screen.Login
@@ -114,8 +127,11 @@ class MainActivity : ComponentActivity() {
                                 screen = Screen.Login
                             },
                             onRefreshSub = {
-                                scope.launch {
-                                    val t = token ?: return@launch
+                                // Suspend function, invoked from inside DashboardScreen's own
+                                // LaunchedEffect coroutine, so the server list it reads right
+                                // after is guaranteed to reflect this fetch — not stale data.
+                                val t = token
+                                if (t != null) {
                                     val deviceId = DeviceIdService.getDeviceId(this@MainActivity)
                                     val result = ApiService.fetchSub(deviceId, t)
                                     if (result is ApiResult.Success) {

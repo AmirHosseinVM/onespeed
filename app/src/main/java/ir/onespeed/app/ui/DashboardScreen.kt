@@ -36,7 +36,7 @@ fun DashboardScreen(
     onConnectRequest: (guid: String) -> Unit,
     onDisconnect: () -> Unit,
     onLogout: () -> Unit,
-    onRefreshSub: () -> Unit,
+    onRefreshSub: suspend () -> Unit,
 ) {
     var servers by remember { mutableStateOf(listOf<ServerInfo>()) }
     var autoBest by remember { mutableStateOf(true) }
@@ -49,6 +49,7 @@ fun DashboardScreen(
     LaunchedEffect(Unit) {
         servers = ConnectionManager.listServers()
         onRefreshSub()
+        servers = ConnectionManager.listServers()
     }
 
     Column(Modifier.fillMaxSize().padding(18.dp)) {
