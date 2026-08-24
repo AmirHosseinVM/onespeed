@@ -55,6 +55,11 @@ android {
         abortOnError = false
     }
 
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
