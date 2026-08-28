@@ -24,6 +24,16 @@ jobs:
           curl -L --fail --retry 4 -o app/libs/libv2ray.aar \
             https://github.com/2dust/AndroidLibXrayLite/releases/download/v26.7.28/libv2ray.aar
 
+      - name: Fetch Vazirmatn font (matches the approved UI mockup)
+        run: |
+          mkdir -p app/src/main/res/font
+          base="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@latest/fonts/ttf"
+          curl -L --fail --retry 4 -o app/src/main/res/font/vazir_regular.ttf "$base/Vazirmatn-Regular.ttf"
+          curl -L --fail --retry 4 -o app/src/main/res/font/vazir_medium.ttf "$base/Vazirmatn-Medium.ttf"
+          curl -L --fail --retry 4 -o app/src/main/res/font/vazir_semibold.ttf "$base/Vazirmatn-SemiBold.ttf"
+          curl -L --fail --retry 4 -o app/src/main/res/font/vazir_bold.ttf "$base/Vazirmatn-Bold.ttf"
+          curl -L --fail --retry 4 -o app/src/main/res/font/vazir_extrabold.ttf "$base/Vazirmatn-ExtraBold.ttf"
+
       - name: Set up Android NDK (needed to build hev-socks5-tunnel from source)
         uses: nttld/setup-ndk@v1
         id: setup-ndk

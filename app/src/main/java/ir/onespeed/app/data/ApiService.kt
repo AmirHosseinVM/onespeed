@@ -4,6 +4,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 sealed class ApiResult {
@@ -55,6 +57,14 @@ object ApiService {
      * is business-specific metadata the panel hides inside a fake "server"
      * entry (port == 1). It has nothing to do with actual server parsing,
      * which AngConfigManager.importBatchConfig handles for every real entry.
+     *
+     * Does a real JSON parse (org.json, built into Android — no extra
+     * dependency) instead of scanning raw text with regex: a text scan can't
+     * tell which "address"/"port" belong to which entry once objects are
+     * nested (address lives under settings.vnext[0] or settings.servers[0],
+     * not flat on the object), so it silently grabbed the wrong value or none
+     * at all. Walking the real structure mirrors exactly how the server list
+     * itself is parsed, so this and the visible server list can never disagree.
      */
     private fun extractPlan(rawBody: String): PlanInfo {
         var days: String? = null
@@ -63,14 +73,37 @@ object ApiService {
 
         val trimmed = rawBody.trim()
         if (trimmed.startsWith("[")) {
-            // JSON-array format: scan remarks/address text directly with the same regexes —
-            // avoids a full JSON parse just for two fields.
-            Regex(""""remarks"\s*:\s*"([^"]*)"[\s\S]*?"address"\s*:\s*"([^"]*)"""").findAll(trimmed).forEach { m ->
-                val remarks = m.groupValues[1]
-                val address = m.groupValues[2]
-                dayRegex.find(remarks)?.let { days = days ?: it.groupValues[1].trim() }
-                volRegex.find(remarks)?.let { vol = vol ?: it.groupValues[1].trim() }
-                dateRegex.find(address)?.let { expiry = expiry ?: it.groupValues[1] }
+            try {
+                val arr = JSONArray(trimmed)
+                for (i in 0 until arr.length()) {
+                    val entry = arr.optJSONObject(i) ?: continue
+                    val remarks = entry.optString("remarks", "")
+                    val outbounds = entry.optJSONArray("outbounds") ?: continue
+                    var address: String? = null
+                    var port: Int? = null
+                    for (j in 0 until outbounds.length()) {
+                        val ob = outbounds.optJSONObject(j) ?: continue
+                        if (ob.optString("tag") != "proxy") continue
+                        val settings = ob.optJSONObject("settings") ?: continue
+                        val vnext = settings.optJSONArray("vnext")
+                        val serversArr = settings.optJSONArray("servers")
+                        val target = vnext?.optJSONObject(0) ?: serversArr?.optJSONObject(0)
+                        if (target != null) {
+                            address = if (target.has("address")) target.getString("address") else null
+                            port = if (target.has("port")) target.optInt("port") else null
+                        } else if (settings.has("address")) {
+                            address = settings.getString("address")
+                            port = if (settings.has("port")) settings.optInt("port") else null
+                        }
+                        break
+                    }
+                    if (port != 1) continue
+                    dayRegex.find(remarks)?.let { days = days ?: it.groupValues[1].trim() }
+                    volRegex.find(remarks)?.let { vol = vol ?: it.groupValues[1].trim() }
+                    address?.let { a -> dateRegex.find(a)?.let { expiry = expiry ?: it.groupValues[1] } }
+                }
+            } catch (e: Exception) {
+                // Malformed/unexpected JSON shape — fall through with whatever was found (possibly nothing).
             }
         } else {
             trimmed.lineSequence().filter { it.isNotBlank() }.forEach { line ->

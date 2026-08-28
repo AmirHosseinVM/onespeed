@@ -81,7 +81,10 @@ data class V2rayConfig(
             var user: String? = null,
             var pass: String? = null,
             var headers: Map<String, String>? = null,
-            /*VMess/VLESS*/
+            /*VMess/VLESS — official Xray schema nests address/port under vnext[]*/
+            var vnext: List<VnextBean>? = null,
+            /*Trojan/Shadowsocks — official Xray schema nests address/port under servers[]*/
+            var servers: List<ServerObjBean>? = null,
             var id: String? = null,
             var security: String? = null,
             var encryption: String? = null,
@@ -100,6 +103,20 @@ data class V2rayConfig(
             var mtu: Int? = null,
             var domainStrategy: String? = null,
         ) {
+            data class VnextBean(
+                var address: String? = null,
+                var port: Int? = null,
+                var users: List<Map<String, Any?>>? = null,
+            )
+
+            data class ServerObjBean(
+                var address: String? = null,
+                var port: Int? = null,
+                var password: String? = null,
+                var method: String? = null,
+                var users: List<Map<String, Any?>>? = null,
+            )
+
             data class WireGuardBean(
                 var publicKey: String = "",
                 var preSharedKey: String? = null,
@@ -311,7 +328,13 @@ data class V2rayConfig(
             return if (protocol.equals(EConfigType.WIREGUARD.name, true)) {
                 settings?.peers?.firstOrNull()?.endpoint?.substringBeforeLast(":")
             } else {
-                settings?.address as? String
+                // Official Xray schema nests address/port per-entry under vnext[]
+                // (vmess/vless) or servers[] (trojan/shadowsocks/socks) — only a
+                // few protocols (plain socks/http outbound) put them flat on
+                // settings itself. Check the nested shapes first, flat as fallback.
+                settings?.vnext?.firstOrNull()?.address
+                    ?: settings?.servers?.firstOrNull()?.address
+                    ?: settings?.address as? String
             }
         }
 
@@ -319,7 +342,9 @@ data class V2rayConfig(
             return if (protocol.equals(EConfigType.WIREGUARD.name, true)) {
                 settings?.peers?.firstOrNull()?.endpoint?.substringAfterLast(":")?.toIntOrNull()
             } else {
-                settings?.port
+                settings?.vnext?.firstOrNull()?.port
+                    ?: settings?.servers?.firstOrNull()?.port
+                    ?: settings?.port
             }
         }
 
