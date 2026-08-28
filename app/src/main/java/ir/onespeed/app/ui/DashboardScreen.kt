@@ -8,12 +8,14 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -21,7 +23,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,17 +32,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.onespeed.app.data.ConnectionManager
-import ir.onespeed.app.data.IpLookup
 import ir.onespeed.app.data.PlanInfo
 import ir.onespeed.app.data.ServerInfo
 import ir.onespeed.app.data.VpnState
 import kotlinx.coroutines.launch
+
+/** Tap feedback without the web-style ripple/highlight box — just fires onClick. */
+@Composable
+private fun Modifier.tapOnly(onClick: () -> Unit): Modifier =
+    this.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,9 +64,9 @@ fun DashboardScreen(
     var autoBest by remember { mutableStateOf(true) }
     var selectedGuid by remember { mutableStateOf<String?>(null) }
     var currentLocationName by remember { mutableStateOf("بهترین سرور (خودکار)") }
+    var connectedServerAddress by remember { mutableStateOf<String?>(null) }
     var sheetOpen by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
-    var connectedIp by remember { mutableStateOf<String?>(null) }
     var seconds by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
 
@@ -80,15 +87,8 @@ fun DashboardScreen(
         }
     }
 
-    // Real exit IP, fetched through the tunnel once connected (not faked).
-    LaunchedEffect(vpnState) {
-        if (vpnState == VpnState.CONNECTED) {
-            connectedIp = null
-            connectedIp = IpLookup.currentIp()
-        } else {
-            connectedIp = null
-        }
-    }
+    fun resolveTargetGuid(): String? =
+        if (autoBest) servers.firstOrNull()?.guid else (selectedGuid ?: servers.firstOrNull()?.guid)
 
     Column(Modifier.fillMaxSize().padding(18.dp)) {
 
@@ -164,9 +164,12 @@ fun DashboardScreen(
                 onClick = {
                     if (vpnState != VpnState.IDLE) {
                         onDisconnect()
-                    } else if (servers.isNotEmpty()) {
-                        val target = if (autoBest) servers.first().guid else (selectedGuid ?: servers.first().guid)
-                        onConnectRequest(target)
+                    } else {
+                        val targetGuid = resolveTargetGuid()
+                        if (targetGuid != null) {
+                            connectedServerAddress = servers.find { it.guid == targetGuid }?.address
+                            onConnectRequest(targetGuid)
+                        }
                     }
                 },
             )
@@ -174,15 +177,18 @@ fun DashboardScreen(
 
         Spacer(Modifier.height(18.dp))
 
-        // ---- stats grid: 2x2, matches the mockup's four equal chips ----
+        // ---- stats: زمان و حجم باقی‌مانده ----
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatChip(Modifier.weight(1f), "دانلود", "—", isSpeed = true)
-            StatChip(Modifier.weight(1f), "آپلود", "—", isSpeed = true)
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatChip(Modifier.weight(1f), "زمان", plan.daysText?.let { if (it == "∞") it else "$it روز" } ?: "—")
-            StatChip(Modifier.weight(1f), "حجم", plan.volumeText?.let { if (it == "∞") "نامحدود" else "$it GB" } ?: "—")
+            StatChip(
+                Modifier.weight(1f), "زمان",
+                plan.daysText?.let { if (it == "∞") it else "$it روز" } ?: "—",
+                icon = Icons.Filled.AccessTime,
+            )
+            StatChip(
+                Modifier.weight(1f), "حجم",
+                plan.volumeText?.let { if (it == "∞") "نامحدود" else "$it مگابایت" } ?: "—",
+                icon = Icons.Filled.SdStorage,
+            )
         }
 
         Spacer(Modifier.height(12.dp))
@@ -199,11 +205,11 @@ fun DashboardScreen(
                 Box(Modifier.size(6.dp).background(AppColors.thyme, CircleShape))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    connectedIp ?: "در حال دریافت آی‌پی...",
+                    connectedServerAddress ?: "—",
                     fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = AppColors.text,
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("· آی‌پی متصل", fontSize = 8.5.sp, color = AppColors.muted)
+                Text("· سرور متصل", fontSize = 8.5.sp, color = AppColors.muted)
             }
             Spacer(Modifier.height(10.dp))
         }
@@ -213,7 +219,7 @@ fun DashboardScreen(
             Modifier.fillMaxWidth()
                 .background(AppColors.surface, RoundedCornerShape(14.dp))
                 .border(1.dp, AppColors.line, RoundedCornerShape(14.dp))
-                .clickable { sheetOpen = true }
+                .tapOnly { sheetOpen = true }
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -237,27 +243,30 @@ fun DashboardScreen(
                 ) {
                     Text("انتخاب لوکیشن", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppColors.text)
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        SmallIconButton(
-                            onClick = {
-                                if (pingingAll) return@SmallIconButton
-                                pingingAll = true
-                                servers.forEach { it.pinging = true }
-                                servers = servers.toList()
-                                scope.launch {
-                                    val updated = servers.map { s ->
-                                        val ms = ConnectionManager.ping(s.guid)
-                                        s.copy(pingMs = ms, pinging = false)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier.background(AppColors.sky.copy(alpha = .1f), RoundedCornerShape(8.dp))
+                                .tapOnly {
+                                    if (pingingAll) return@tapOnly
+                                    pingingAll = true
+                                    servers.forEach { it.pinging = true }
+                                    servers = servers.toList()
+                                    scope.launch {
+                                        val updated = servers.map { s ->
+                                            val ms = ConnectionManager.ping(s.guid)
+                                            s.copy(pingMs = ms, pinging = false)
+                                        }
+                                        servers = updated
+                                        pingingAll = false
                                     }
-                                    servers = updated
-                                    pingingAll = false
                                 }
-                            },
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center,
                         ) {
                             if (pingingAll) {
-                                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = AppColors.sky)
+                                CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp, color = AppColors.sky)
                             } else {
-                                Icon(Icons.Filled.Refresh, "بررسی پینگ", tint = AppColors.sky, modifier = Modifier.size(16.dp))
+                                Text("بررسی پینگ", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = AppColors.sky)
                             }
                         }
                         SmallIconButton(onClick = { sheetOpen = false }) {
@@ -272,7 +281,7 @@ fun DashboardScreen(
                     Modifier.fillMaxWidth()
                         .background(AppColors.sky.copy(alpha = .07f), RoundedCornerShape(13.dp))
                         .border(1.dp, AppColors.thyme.copy(alpha = .3f), RoundedCornerShape(13.dp))
-                        .clickable { autoBest = true; selectedGuid = null }
+                        .tapOnly { autoBest = true; selectedGuid = null }
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -290,7 +299,7 @@ fun DashboardScreen(
                         Row(
                             Modifier.fillMaxWidth()
                                 .background(if (isSel) AppColors.sky.copy(alpha = .1f) else Color.Transparent, RoundedCornerShape(12.dp))
-                                .clickable {
+                                .tapOnly {
                                     autoBest = false
                                     selectedGuid = s.guid
                                     currentLocationName = s.name
@@ -351,7 +360,7 @@ private fun ConnectButton(state: VpnState, onClick: () -> Unit) {
                     shape = CircleShape,
                 )
                 .border(1.dp, AppColors.line, CircleShape)
-                .clickable(onClick = onClick),
+                .tapOnly(onClick),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -387,7 +396,7 @@ private fun PingPill(bg: Color, fg: Color, text: String) {
 }
 
 @Composable
-private fun StatChip(modifier: Modifier, label: String, value: String, isSpeed: Boolean = false) {
+private fun StatChip(modifier: Modifier, label: String, value: String, icon: ImageVector) {
     Column(
         modifier
             .background(AppColors.surface, RoundedCornerShape(14.dp))
@@ -396,11 +405,11 @@ private fun StatChip(modifier: Modifier, label: String, value: String, isSpeed: 
             .height(64.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = AppColors.muted)
-        Text(
-            buildString { append(value); if (isSpeed) append(" MB/s") },
-            fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppColors.text,
-        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = AppColors.muted)
+            Icon(icon, null, tint = AppColors.sky, modifier = Modifier.size(12.dp))
+        }
+        Text(value, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppColors.text)
     }
 }
 
@@ -410,7 +419,7 @@ private fun IconChip(icon: @Composable () -> Unit, onClick: () -> Unit) {
         Modifier.size(36.dp)
             .background(AppColors.surface, RoundedCornerShape(12.dp))
             .border(1.dp, AppColors.line, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
+            .tapOnly(onClick),
         contentAlignment = Alignment.Center,
     ) { icon() }
 }
@@ -418,7 +427,7 @@ private fun IconChip(icon: @Composable () -> Unit, onClick: () -> Unit) {
 @Composable
 private fun SmallIconButton(onClick: () -> Unit, content: @Composable () -> Unit) {
     Box(
-        Modifier.size(26.dp).background(AppColors.surface2, RoundedCornerShape(8.dp)).clickable(onClick = onClick),
+        Modifier.size(26.dp).background(AppColors.surface2, RoundedCornerShape(8.dp)).tapOnly(onClick),
         contentAlignment = Alignment.Center,
     ) { content() }
 }

@@ -36,6 +36,7 @@ object ConnectionManager {
                 guid = guid,
                 name = cleanName.ifEmpty { profile.remarks },
                 flagCode = flagMatch?.value?.let { flagEmojiToCode(it) },
+                address = profile.server,
             )
         }
     }

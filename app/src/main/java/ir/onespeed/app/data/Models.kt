@@ -4,6 +4,7 @@ data class ServerInfo(
     val guid: String,       // MmkvManager server guid — used to select/connect
     val name: String,
     val flagCode: String?,  // ISO 3166-1 alpha-2, lowercase, or null
+    val address: String? = null, // host/IP of the actual proxy server, for display once connected
     var pingMs: Long? = null,
     var pinging: Boolean = false,
 )

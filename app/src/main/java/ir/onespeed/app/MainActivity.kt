@@ -10,12 +10,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -26,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
@@ -200,44 +195,11 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun SplashScreen() {
-    val letters = "OneSpeed".toCharArray()
-    val transition = rememberInfiniteTransition(label = "splash")
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Row {
-                letters.forEachIndexed { i, c ->
-                    val alpha by transition.animateFloat(
-                        initialValue = 0.2f, targetValue = 1f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(1200, delayMillis = i * 100, easing = LinearEasing),
-                            repeatMode = RepeatMode.Reverse,
-                        ),
-                        label = "letter$i",
-                    )
-                    Text(
-                        c.toString(), fontSize = 30.sp, fontWeight = FontWeight.Light,
-                        color = AppColors.sky.copy(alpha = alpha),
-                        modifier = Modifier.padding(horizontal = 1.dp),
-                    )
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                repeat(3) { i ->
-                    val scale by transition.animateFloat(
-                        initialValue = 0.8f, targetValue = 1.2f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(1400, delayMillis = i * 200, easing = LinearEasing),
-                            repeatMode = RepeatMode.Reverse,
-                        ),
-                        label = "dot$i",
-                    )
-                    Box(
-                        Modifier.size((6 * scale).dp).background(AppColors.sky, CircleShape)
-                    )
-                }
-            }
-        }
+        Text(
+            "OneSpeed",
+            style = TextStyle(brush = AppColors.brandGradient, fontSize = 22.sp, fontWeight = FontWeight.Bold),
+        )
     }
 }
 
