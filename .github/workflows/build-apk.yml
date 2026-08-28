@@ -24,15 +24,33 @@ jobs:
           curl -L --fail --retry 4 -o app/libs/libv2ray.aar \
             https://github.com/2dust/AndroidLibXrayLite/releases/download/v26.7.28/libv2ray.aar
 
-      - name: Fetch tun2socks native library (libhev-socks5-tunnel.so, extracted from official v2rayNG release)
+      - name: Set up Android NDK (needed to build hev-socks5-tunnel from source)
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27c
+          add-to-path: true
+
+      - name: Build hev-socks5-tunnel.so (tun2socks — no prebuilt binary exists, must compile)
+        env:
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
-          curl -L --fail --retry 4 -o /tmp/v2rayng.apk \
-            https://github.com/2dust/v2rayNG/releases/download/2.2.4/v2rayNG_2.2.4_universal.apk
-          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
-            mkdir -p app/src/main/jniLibs/$abi
-            unzip -p /tmp/v2rayng.apk lib/$abi/libhev-socks5-tunnel.so > app/src/main/jniLibs/$abi/libhev-socks5-tunnel.so
-          done
-          ls -la app/src/main/jniLibs/*/
+          set -e
+          git clone --recursive https://github.com/heiher/hev-socks5-tunnel /tmp/hevtun
+          mkdir -p /tmp/hevbuild/jni
+          ln -s /tmp/hevtun /tmp/hevbuild/jni/hev-socks5-tunnel
+          "$NDK_HOME/ndk-build" \
+            NDK_PROJECT_PATH=/tmp/hevbuild \
+            APP_BUILD_SCRIPT=/tmp/hevtun/Android.mk \
+            APP_ABI="armeabi-v7a arm64-v8a x86 x86_64" \
+            APP_PLATFORM=android-24 \
+            NDK_LIBS_OUT=/tmp/hevbuild/libs \
+            NDK_OUT=/tmp/hevbuild/obj \
+            APP_CFLAGS="-O3 -DPKGNAME=com/v2ray/ang/service" \
+            APP_LDFLAGS="-Wl,--build-id=none -Wl,--hash-style=gnu"
+          mkdir -p app/src/main/jniLibs
+          cp -r /tmp/hevbuild/libs/* app/src/main/jniLibs/
+          find app/src/main/jniLibs -name "*.so"
 
       - name: Decode signing key (only if configured in repo secrets)
         if: env.HAS_KEYSTORE == 'true'
