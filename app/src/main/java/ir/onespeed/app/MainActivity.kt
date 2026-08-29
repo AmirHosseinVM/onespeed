@@ -2,7 +2,9 @@ package ir.onespeed.app
 
 import android.Manifest
 import android.content.BroadcastReceiver
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
@@ -13,12 +15,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +57,7 @@ class MainActivity : ComponentActivity() {
             var plan by remember { mutableStateOf(PlanInfo()) }
             var vpnState by remember { mutableStateOf(VpnState.IDLE) }
             var errorMsg by remember { mutableStateOf<String?>(null) }
+            var loginLoading by remember { mutableStateOf(false) }
             val scope = rememberCoroutineScope()
 
             val vpnPermissionLauncher = rememberLauncherForActivityResult(
@@ -136,7 +140,10 @@ class MainActivity : ComponentActivity() {
                     when (val s = screen) {
                         Screen.Splash -> SplashScreen()
                         Screen.Login -> LoginScreen(
+                            loading = loginLoading,
                             onSubmit = { inputToken ->
+                                loginLoading = true
+                                errorMsg = null
                                 scope.launch {
                                     val deviceId = DeviceIdService.getDeviceId(this@MainActivity)
                                     when (val result = ApiService.fetchSub(deviceId, inputToken)) {
@@ -152,6 +159,7 @@ class MainActivity : ComponentActivity() {
                                             "این اشتراک روی حداکثر تعداد دستگاه مجاز (${result.limit ?: "?"}) فعال است"
                                         is ApiResult.Error -> errorMsg = "دریافت اطلاعات ناموفق بود، دوباره تلاش کنید"
                                     }
+                                    loginLoading = false
                                 }
                             },
                             error = errorMsg,
@@ -204,23 +212,14 @@ private fun SplashScreen() {
 }
 
 @Composable
-private fun LoginScreen(onSubmit: (String) -> Unit, error: String?) {
+private fun LoginScreen(loading: Boolean, onSubmit: (String) -> Unit, error: String?) {
     var text by remember { mutableStateOf("") }
+    val context = LocalContext.current
     Column(
         Modifier.fillMaxSize().padding(28.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            Modifier.size(76.dp).background(AppColors.surface, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(
-                Modifier.size(30.dp)
-                    .background(AppColors.brandGradient, shape = RoundedCornerShape(8.dp)),
-            )
-        }
-        Spacer(Modifier.height(18.dp))
         Text("ورود به سرویس", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppColors.text)
         Spacer(Modifier.height(8.dp))
         Text(
@@ -233,6 +232,7 @@ private fun LoginScreen(onSubmit: (String) -> Unit, error: String?) {
             placeholder = { Text("لطفا توکن خود را وارد کنید", color = AppColors.muted2) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
+            enabled = !loading,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = AppColors.sky,
                 unfocusedBorderColor = AppColors.line,
@@ -240,11 +240,28 @@ private fun LoginScreen(onSubmit: (String) -> Unit, error: String?) {
         )
         Spacer(Modifier.height(14.dp))
         Button(
-            onClick = { if (text.isNotBlank()) onSubmit(text.trim()) },
+            onClick = { if (text.isNotBlank() && !loading) onSubmit(text.trim()) },
             modifier = Modifier.fillMaxWidth().height(46.dp),
             shape = RoundedCornerShape(12.dp),
+            enabled = !loading,
             colors = ButtonDefaults.buttonColors(containerColor = AppColors.sky),
-        ) { Text("ورود و دریافت اطلاعات", fontWeight = FontWeight.Bold) }
+        ) {
+            if (loading) {
+                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+            } else {
+                Text("ورود و دریافت اطلاعات", fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        TextButton(
+            onClick = {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/OneSpeedBot"))
+                context.startActivity(intent)
+            },
+            enabled = !loading,
+        ) {
+            Text("اگر توکن ندارید اینجا کلیک کنید", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AppColors.sky)
+        }
 
         if (error != null) {
             Spacer(Modifier.height(12.dp))

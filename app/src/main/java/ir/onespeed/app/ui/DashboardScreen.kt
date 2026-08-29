@@ -65,6 +65,7 @@ fun DashboardScreen(
     var selectedGuid by remember { mutableStateOf<String?>(null) }
     var currentLocationName by remember { mutableStateOf("بهترین سرور (خودکار)") }
     var connectedServerAddress by remember { mutableStateOf<String?>(null) }
+    var connectedServerIp by remember { mutableStateOf<String?>(null) }
     var sheetOpen by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     var seconds by remember { mutableStateOf(0) }
@@ -84,6 +85,23 @@ fun DashboardScreen(
                 kotlinx.coroutines.delay(1000)
                 seconds++
             }
+        }
+    }
+
+    // Resolve the server's actual IP for display. The panel often gives a
+    // domain (e.g. behind CDN/reality), and the person wants to see the real
+    // server IP, not that domain and not the device's own public IP.
+    LaunchedEffect(vpnState, connectedServerAddress) {
+        if (vpnState == VpnState.CONNECTED && connectedServerAddress != null) {
+            connectedServerIp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    java.net.InetAddress.getByName(connectedServerAddress).hostAddress
+                } catch (e: Exception) {
+                    connectedServerAddress
+                }
+            }
+        } else {
+            connectedServerIp = null
         }
     }
 
@@ -205,7 +223,7 @@ fun DashboardScreen(
                 Box(Modifier.size(6.dp).background(AppColors.thyme, CircleShape))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    connectedServerAddress ?: "—",
+                    connectedServerIp ?: "در حال دریافت...",
                     fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = AppColors.text,
                 )
                 Spacer(Modifier.width(6.dp))
