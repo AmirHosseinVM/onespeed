@@ -16,7 +16,7 @@ sealed class ApiResult {
 
 object ApiService {
     // The app talks ONLY to this gateway — never to the real panel domain directly.
-    const val GATEWAY_BASE = "https://devfull.sbs/app"
+    const val GATEWAY_BASE = "https://dl90music.ir/app"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(12, TimeUnit.SECONDS)
