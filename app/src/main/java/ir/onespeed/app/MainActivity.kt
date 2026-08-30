@@ -176,7 +176,8 @@ class MainActivity : ComponentActivity() {
                             DashboardScreen(
                             plan = plan,
                             vpnState = vpnState,
-                            onConnectRequest = { guid -> requestVpnPermissionThenConnect(guid) },
+                            connectError = errorMsg,
+                            onConnectRequest = { guid -> errorMsg = null; requestVpnPermissionThenConnect(guid) },
                             onDisconnect = { ConnectionManager.disconnect(this@MainActivity) },
                             onLogout = {
                                 ConnectionManager.disconnect(this@MainActivity)

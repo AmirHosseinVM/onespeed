@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.onespeed.app.data.ConnectionManager
@@ -54,6 +55,7 @@ private fun Modifier.tapOnly(onClick: () -> Unit): Modifier =
 fun DashboardScreen(
     plan: PlanInfo,
     vpnState: VpnState,
+    connectError: String? = null,
     onConnectRequest: (guid: String) -> Unit,
     onDisconnect: () -> Unit,
     onLogout: () -> Unit,
@@ -191,6 +193,16 @@ fun DashboardScreen(
                     }
                 },
             )
+
+            if (vpnState == VpnState.IDLE && connectError != null) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    connectError, color = AppColors.red, fontSize = 10.sp, textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                        .background(AppColors.red.copy(alpha = .1f), RoundedCornerShape(10.dp))
+                        .padding(8.dp),
+                )
+            }
         }
 
         Spacer(Modifier.height(18.dp))
