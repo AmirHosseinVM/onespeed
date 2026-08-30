@@ -26,6 +26,9 @@ object ApiService {
     private val dayRegex = Regex("""روز\s*:\s*([^|]+)""")
     private val volRegex = Regex("""حجم\s*:\s*([^|]+)""")
     private val dateRegex = Regex("""^(\d{4}-\d{2}-\d{2})""")
+    // Pulls the customer/service label that precedes the flag/pipe in remarks
+    // like "Amir ✅ | روز : 29 | حجم : 362.1 MB" -> "Amir".
+    private val nameRegex = Regex("""^(.*?)\s*(?:[✅❖◆]|\|)""")
 
     suspend fun fetchSub(deviceId: String, token: String): ApiResult = withContext(Dispatchers.IO) {
         try {
@@ -70,6 +73,18 @@ object ApiService {
         var days: String? = null
         var vol: String? = null
         var expiry: String? = null
+        var name: String? = null
+
+        // A remark like "TestApps ✅ | روز : 29 | حجم : 362.1 MB" carries three
+        // things at once: the customer/service label (before the flag), and
+        // the day/volume figures. Extracted once, reused by both branches below.
+        fun applyMetadataRemarks(remarks: String, address: String?) {
+            dayRegex.find(remarks)?.let { days = days ?: it.groupValues[1].trim() }
+            volRegex.find(remarks)?.let { vol = vol ?: it.groupValues[1].trim() }
+            nameRegex.find(remarks)?.let { name = name ?: it.groupValues[1].trim() }
+                ?: run { if (name == null && remarks.isNotBlank()) name = remarks.trim() }
+            address?.let { a -> dateRegex.find(a)?.let { expiry = expiry ?: it.groupValues[1] } }
+        }
 
         val trimmed = rawBody.trim()
         if (trimmed.startsWith("[")) {
@@ -98,15 +113,19 @@ object ApiService {
                         break
                     }
                     if (port != 1) continue
-                    dayRegex.find(remarks)?.let { days = days ?: it.groupValues[1].trim() }
-                    volRegex.find(remarks)?.let { vol = vol ?: it.groupValues[1].trim() }
-                    address?.let { a -> dateRegex.find(a)?.let { expiry = expiry ?: it.groupValues[1] } }
+                    applyMetadataRemarks(remarks, address)
                 }
             } catch (e: Exception) {
                 // Malformed/unexpected JSON shape — fall through with whatever was found (possibly nothing).
             }
         } else {
-            trimmed.lineSequence().filter { it.isNotBlank() }.forEach { line ->
+            // Not a JSON array: this is either a plain newline-separated list of
+            // share URIs (vless://, ss://, ...), or — as with some panel outputs —
+            // that whole list base64-encoded into a single blob. Try to decode
+            // first; if the decoded text doesn't look like URIs, fall back to
+            // treating the original text as the URI list itself.
+            val candidate = decodeBase64IfLooksEncoded(trimmed) ?: trimmed
+            candidate.lineSequence().filter { it.isNotBlank() }.forEach { line ->
                 val hashIdx = line.indexOf('#')
                 if (hashIdx < 0) return@forEach
                 val remarks = try {
@@ -116,11 +135,29 @@ object ApiService {
                 val address = hostPortMatch.groupValues[1]
                 val port = hostPortMatch.groupValues[2].toIntOrNull() ?: return@forEach
                 if (port != 1) return@forEach
-                dayRegex.find(remarks)?.let { days = days ?: it.groupValues[1].trim() }
-                volRegex.find(remarks)?.let { vol = vol ?: it.groupValues[1].trim() }
-                dateRegex.find(address)?.let { expiry = expiry ?: it.groupValues[1] }
+                applyMetadataRemarks(remarks, address)
             }
         }
-        return PlanInfo(daysText = days, volumeText = vol, expiryDate = expiry)
+        return PlanInfo(daysText = days, volumeText = vol, expiryDate = expiry, planName = name ?: "OneSpeed")
+    }
+
+    /**
+     * The panel sometimes returns the subscription as one big base64 blob
+     * instead of plain newline-separated share URIs (same content, just
+     * wrapped). Try to decode it; only accept the result if it actually looks
+     * like a URI list, so we never mangle genuinely-plain text.
+     */
+    private fun decodeBase64IfLooksEncoded(text: String): String? {
+        val cleaned = text.replace("\\s".toRegex(), "")
+        val flagSets = listOf(android.util.Base64.DEFAULT, android.util.Base64.URL_SAFE)
+        for (flags in flagSets) {
+            try {
+                val decoded = String(android.util.Base64.decode(cleaned, flags), Charsets.UTF_8)
+                if (Regex("""^\w+://""").containsMatchIn(decoded)) return decoded
+            } catch (e: Exception) {
+                // try next flag combination
+            }
+        }
+        return null
     }
 }

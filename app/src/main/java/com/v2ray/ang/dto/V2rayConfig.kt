@@ -114,6 +114,7 @@ data class V2rayConfig(
                 var port: Int? = null,
                 var password: String? = null,
                 var method: String? = null,
+                var flow: String? = null,
                 var users: List<Map<String, Any?>>? = null,
             )
 

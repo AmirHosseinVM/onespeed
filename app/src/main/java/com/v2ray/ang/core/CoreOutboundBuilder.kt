@@ -118,11 +118,23 @@ object CoreOutboundBuilder {
         val outboundBean = createInitOutbound(EConfigType.VMESS)
 
         outboundBean?.settings?.let { settings ->
-            settings.address = getServerAddress(profileItem)
-            settings.port = profileItem.serverPort.orEmpty().toInt()
-            settings.id = profileItem.password.orEmpty()
-            settings.security = profileItem.method
-            settings.level = AppConfig.DEFAULT_LEVEL
+            // Real Xray schema nests address/port per-user under vnext[] for
+            // vmess/vless — flat settings.address/port (as this used to write)
+            // is not a shape Xray-core accepts, so the outbound silently never
+            // actually connects even though everything else about it is valid.
+            settings.vnext = listOf(
+                OutboundBean.OutSettingsBean.VnextBean(
+                    address = getServerAddress(profileItem),
+                    port = profileItem.serverPort.orEmpty().toIntOrNull(),
+                    users = listOf(
+                        mapOf(
+                            "id" to profileItem.password.orEmpty(),
+                            "security" to profileItem.method,
+                            "level" to AppConfig.DEFAULT_LEVEL,
+                        )
+                    ),
+                )
+            )
         }
 
         val sni = outboundBean?.streamSettings?.let {
@@ -140,12 +152,20 @@ object CoreOutboundBuilder {
         val outboundBean = createInitOutbound(EConfigType.VLESS)
 
         outboundBean?.settings?.let { settings ->
-            settings.address = getServerAddress(profileItem)
-            settings.port = profileItem.serverPort.orEmpty().toInt()
-            settings.id = profileItem.password.orEmpty()
-            settings.encryption = profileItem.method
-            settings.flow = profileItem.flow
-            settings.level = AppConfig.DEFAULT_LEVEL
+            settings.vnext = listOf(
+                OutboundBean.OutSettingsBean.VnextBean(
+                    address = getServerAddress(profileItem),
+                    port = profileItem.serverPort.orEmpty().toIntOrNull(),
+                    users = listOf(
+                        mapOf(
+                            "id" to profileItem.password.orEmpty(),
+                            "encryption" to (profileItem.method?.nullIfBlank() ?: "none"),
+                            "flow" to profileItem.flow?.nullIfBlank(),
+                            "level" to AppConfig.DEFAULT_LEVEL,
+                        )
+                    ),
+                )
+            )
         }
 
         val sni = outboundBean?.streamSettings?.let {
@@ -163,11 +183,16 @@ object CoreOutboundBuilder {
         val outboundBean = createInitOutbound(EConfigType.SHADOWSOCKS)
 
         outboundBean?.settings?.let { settings ->
-            settings.address = getServerAddress(profileItem)
-            settings.port = profileItem.serverPort.orEmpty().toInt()
-            settings.password = profileItem.password
-            settings.method = profileItem.method
-            settings.level = AppConfig.DEFAULT_LEVEL
+            // Real Xray schema nests address/port per-server under servers[]
+            // for shadowsocks/trojan — same issue as vmess/vless above.
+            settings.servers = listOf(
+                OutboundBean.OutSettingsBean.ServerObjBean(
+                    address = getServerAddress(profileItem),
+                    port = profileItem.serverPort.orEmpty().toIntOrNull(),
+                    password = profileItem.password,
+                    method = profileItem.method,
+                )
+            )
         }
 
         val sni = outboundBean?.streamSettings?.let {
@@ -185,11 +210,14 @@ object CoreOutboundBuilder {
         val outboundBean = createInitOutbound(EConfigType.TROJAN)
 
         outboundBean?.settings?.let { settings ->
-            settings.address = getServerAddress(profileItem)
-            settings.port = profileItem.serverPort.orEmpty().toInt()
-            settings.password = profileItem.password
-            settings.flow = profileItem.flow
-            settings.level = AppConfig.DEFAULT_LEVEL
+            settings.servers = listOf(
+                OutboundBean.OutSettingsBean.ServerObjBean(
+                    address = getServerAddress(profileItem),
+                    port = profileItem.serverPort.orEmpty().toIntOrNull(),
+                    password = profileItem.password,
+                    flow = profileItem.flow?.nullIfBlank(),
+                )
+            )
         }
 
         val sni = outboundBean?.streamSettings?.let {
@@ -207,13 +235,16 @@ object CoreOutboundBuilder {
         val outboundBean = createInitOutbound(EConfigType.SOCKS)
 
         outboundBean?.settings?.let { settings ->
-            settings.address = getServerAddress(profileItem)
-            settings.port = profileItem.serverPort.orEmpty().toInt()
-            settings.level = AppConfig.DEFAULT_LEVEL
-            if (profileItem.username.isNotNullEmpty()) {
-                settings.user = profileItem.username.orEmpty()
-                settings.pass = profileItem.password.orEmpty()
-            }
+            // socks/http outbounds also use servers[], not flat address/port.
+            settings.servers = listOf(
+                OutboundBean.OutSettingsBean.ServerObjBean(
+                    address = getServerAddress(profileItem),
+                    port = profileItem.serverPort.orEmpty().toIntOrNull(),
+                    users = if (profileItem.username.isNotNullEmpty())
+                        listOf(mapOf("user" to profileItem.username, "pass" to profileItem.password))
+                    else null,
+                )
+            )
         }
 
         return outboundBean
@@ -223,13 +254,15 @@ object CoreOutboundBuilder {
         val outboundBean = createInitOutbound(EConfigType.HTTP)
 
         outboundBean?.settings?.let { settings ->
-            settings.address = getServerAddress(profileItem)
-            settings.port = profileItem.serverPort.orEmpty().toInt()
-            settings.level = AppConfig.DEFAULT_LEVEL
-            if (profileItem.username.isNotNullEmpty()) {
-                settings.user = profileItem.username.orEmpty()
-                settings.pass = profileItem.password.orEmpty()
-            }
+            settings.servers = listOf(
+                OutboundBean.OutSettingsBean.ServerObjBean(
+                    address = getServerAddress(profileItem),
+                    port = profileItem.serverPort.orEmpty().toIntOrNull(),
+                    users = if (profileItem.username.isNotNullEmpty())
+                        listOf(mapOf("user" to profileItem.username, "pass" to profileItem.password))
+                    else null,
+                )
+            )
         }
 
         return outboundBean
