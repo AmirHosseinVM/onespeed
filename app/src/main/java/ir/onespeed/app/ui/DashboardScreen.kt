@@ -33,7 +33,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -196,12 +198,26 @@ fun DashboardScreen(
 
             if (vpnState == VpnState.IDLE && connectError != null) {
                 Spacer(Modifier.height(10.dp))
-                Text(
-                    connectError, color = AppColors.red, fontSize = 10.sp, textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    Modifier.fillMaxWidth()
                         .background(AppColors.red.copy(alpha = .1f), RoundedCornerShape(10.dp))
                         .padding(8.dp),
-                )
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        connectError, color = AppColors.red, fontSize = 10.sp,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    val clipboard = LocalClipboardManager.current
+                    Box(
+                        Modifier.background(AppColors.red.copy(alpha = .15f), RoundedCornerShape(8.dp))
+                            .tapOnly { clipboard.setText(AnnotatedString(connectError)) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Text("کپی", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = AppColors.red)
+                    }
+                }
             }
         }
 

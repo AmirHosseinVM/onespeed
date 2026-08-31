@@ -49,13 +49,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Server list, tokens, and plan info shouldn't be capturable via
-        // screenshot, screen recording, or the recent-apps thumbnail.
-        window.setFlags(
-            android.view.WindowManager.LayoutParams.FLAG_SECURE,
-            android.view.WindowManager.LayoutParams.FLAG_SECURE,
-        )
-
         setContent {
             remember { ThemeState.init(this@MainActivity) }
 
