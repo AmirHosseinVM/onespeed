@@ -34,6 +34,14 @@ jobs:
           curl -L --fail --retry 4 -o app/src/main/res/font/vazir_bold.ttf "$base/Vazirmatn-Bold.ttf"
           curl -L --fail --retry 4 -o app/src/main/res/font/vazir_extrabold.ttf "$base/Vazirmatn-ExtraBold.ttf"
 
+      - name: Fetch geosite.dat / geoip.dat (routing rules need these — every built-in routing preset references geosite:/geoip: categories, and Xray refuses to start without the matching database file)
+        run: |
+          mkdir -p app/src/main/assets
+          curl -L --fail --retry 4 -o app/src/main/assets/geoip.dat \
+            https://github.com/v2fly/geoip/releases/latest/download/geoip.dat
+          curl -L --fail --retry 4 -o app/src/main/assets/geosite.dat \
+            https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat
+
       - name: Set up Android NDK (needed to build hev-socks5-tunnel from source)
         uses: nttld/setup-ndk@v1
         id: setup-ndk
