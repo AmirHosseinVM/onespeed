@@ -90,7 +90,19 @@ object CoreOutboundBuilder {
             EConfigType.TROJAN -> OutboundBean(
                 protocol = configType.name.lowercase(),
                 settings = OutboundBean.OutSettingsBean(),
-                streamSettings = OutboundBean.StreamSettingsBean()
+                streamSettings = OutboundBean.StreamSettingsBean().apply {
+                    // Force Xray to resolve the server's domain using its OWN
+                    // configured DNS (see configureDns) instead of the device's
+                    // default resolver. Without this, "AsIs" lets the OS/ISP
+                    // DNS answer — which, under DNS poisoning, can return a
+                    // reachable-but-wrong IP: a raw TCP ping to it still
+                    // succeeds (looks fine), but the real protocol handshake
+                    // through that IP never completes. This exact setting is
+                    // present in every proven-working config (confirmed via
+                    // v2Box's exported config for the same subscription link)
+                    // and was the missing piece for links/base64 subscriptions.
+                    sockopt = OutboundBean.StreamSettingsBean.SockoptBean(domainStrategy = "UseIP")
+                }
             )
 
             EConfigType.WIREGUARD -> OutboundBean(
@@ -105,7 +117,9 @@ object CoreOutboundBuilder {
             EConfigType.HYSTERIA2 -> OutboundBean(
                 protocol = EConfigType.HYSTERIA.name.lowercase(),
                 settings = OutboundBean.OutSettingsBean(),
-                streamSettings = OutboundBean.StreamSettingsBean()
+                streamSettings = OutboundBean.StreamSettingsBean().apply {
+                    sockopt = OutboundBean.StreamSettingsBean.SockoptBean(domainStrategy = "UseIP")
+                }
             )
 
             else -> null
