@@ -54,6 +54,12 @@ object AppConfig {
     const val SUBSCRIPTION_UPDATE_TASK_NAME = "subscription_updater"
     const val SUBSCRIPTION_MIN_INTERVAL_MINUTES = 15L
     const val PREF_SPEED_ENABLED = "pref_speed_enabled"
+    // Persisted so the main process (UI) can read live traffic totals —
+    // CoreVpnService runs in a separate process (:RunSoLibV2RayDaemon), so
+    // in-memory fields on NotificationManager aren't visible to the UI;
+    // MMKV is the cross-process-safe way to share these numbers.
+    const val CACHE_TOTAL_UPLINK = "cache_total_uplink"
+    const val CACHE_TOTAL_DOWNLINK = "cache_total_downlink"
     const val PREF_CONFIRM_REMOVE = "pref_confirm_remove"
     const val PREF_DOUBLE_COLUMN_DISPLAY = "pref_double_column_display"
     const val PREF_GROUP_ALL_DISPLAY = "pref_group_all_display"

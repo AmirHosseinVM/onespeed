@@ -15,7 +15,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowDownward
+import androidx.compose.material.icons.automirrored.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -25,6 +28,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,8 +48,11 @@ import androidx.compose.ui.unit.sp
 import ir.onespeed.app.data.ConnectionManager
 import ir.onespeed.app.data.PlanInfo
 import ir.onespeed.app.data.ServerInfo
+import ir.onespeed.app.data.TrafficStats
 import ir.onespeed.app.data.VpnState
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
 
 /** Tap feedback without the web-style ripple/highlight box — just fires onClick. */
 @Composable
@@ -60,6 +67,7 @@ fun DashboardScreen(
     connectError: String? = null,
     onConnectRequest: (guid: String) -> Unit,
     onDisconnect: () -> Unit,
+    onSendLog: () -> Unit = {},
     onLogout: () -> Unit,
     onRefreshSub: suspend () -> Unit,
 ) {
@@ -73,6 +81,8 @@ fun DashboardScreen(
     var sheetOpen by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     var seconds by remember { mutableStateOf(0) }
+    var uplinkBytes by remember { mutableStateOf(0L) }
+    var downlinkBytes by remember { mutableStateOf(0L) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -89,6 +99,24 @@ fun DashboardScreen(
                 kotlinx.coroutines.delay(1000)
                 seconds++
             }
+        }
+    }
+
+    // Real cumulative data used this session — not speed, the running total,
+    // same numbers already shown in the persistent notification. The VPN
+    // tunnel runs in a separate process, so this polls the MMKV-persisted
+    // totals that process writes every few seconds.
+    LaunchedEffect(vpnState) {
+        if (vpnState == VpnState.CONNECTED) {
+            while (true) {
+                val (up, down) = TrafficStats.currentTotals()
+                uplinkBytes = up
+                downlinkBytes = down
+                kotlinx.coroutines.delay(1000)
+            }
+        } else {
+            uplinkBytes = 0L
+            downlinkBytes = 0L
         }
     }
 
@@ -112,7 +140,13 @@ fun DashboardScreen(
     fun resolveTargetGuid(): String? =
         if (autoBest) servers.firstOrNull()?.guid else (selectedGuid ?: servers.firstOrNull()?.guid)
 
-    Column(Modifier.fillMaxSize().padding(18.dp)) {
+    Box(Modifier.fillMaxSize()) {
+        WorldMapBackground(
+            Modifier.fillMaxSize(),
+            serverFlags = servers.mapNotNull { it.flagCode },
+        )
+
+        Column(Modifier.fillMaxSize().padding(18.dp)) {
 
         // ---- top bar ----
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
@@ -145,6 +179,12 @@ fun DashboardScreen(
                     InfoRow("روز باقی‌مانده", plan.daysText ?: "—")
                     InfoRow("حجم باقی‌مانده", plan.volumeText ?: "—")
                     InfoRow("تاریخ انقضا", plan.expiryDate ?: "—")
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text("ارسال گزارش خطا", color = AppColors.sky, fontWeight = FontWeight.Bold) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, null, tint = AppColors.sky, modifier = Modifier.size(16.dp)) },
+                        onClick = { menuOpen = false; onSendLog() },
+                    )
                     HorizontalDivider()
                     DropdownMenuItem(
                         text = { Text("خروج از سرویس", color = AppColors.red, fontWeight = FontWeight.Bold) },
@@ -217,23 +257,42 @@ fun DashboardScreen(
                     ) {
                         Text("کپی", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = AppColors.red)
                     }
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        Modifier.background(AppColors.red.copy(alpha = .15f), RoundedCornerShape(8.dp))
+                            .tapOnly(onSendLog)
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Text("ارسال لاگ", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = AppColors.red)
+                    }
                 }
             }
         }
 
         Spacer(Modifier.height(18.dp))
 
-        // ---- stats: زمان و حجم باقی‌مانده ----
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatChip(
-                Modifier.weight(1f), "زمان",
+        // ---- stats: باقی‌مانده / دانلود / آپلود در حال استفاده — یک ردیف با جداکننده ----
+        Row(
+            Modifier.fillMaxWidth()
+                .background(AppColors.surface, RoundedCornerShape(14.dp))
+                .border(1.dp, AppColors.line, RoundedCornerShape(14.dp))
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            StatCell(
+                Modifier.weight(1f), Icons.Filled.CalendarMonth, AppColors.sky,
+                "باقی‌مانده",
                 plan.daysText?.let { if (it == "∞") it else "$it روز" } ?: "—",
-                icon = Icons.Filled.AccessTime,
             )
-            StatChip(
-                Modifier.weight(1f), "حجم",
-                plan.volumeText?.let { if (it == "∞") "نامحدود" else "$it مگابایت" } ?: "—",
-                icon = Icons.Filled.SdStorage,
+            VDivider()
+            StatCell(
+                Modifier.weight(1f), Icons.AutoMirrored.Filled.ArrowDownward, AppColors.sky,
+                "دانلود", if (vpnState == VpnState.CONNECTED) TrafficStats.format(downlinkBytes) else "—",
+            )
+            VDivider()
+            StatCell(
+                Modifier.weight(1f), Icons.AutoMirrored.Filled.ArrowUpward, AppColors.thyme,
+                "آپلود", if (vpnState == VpnState.CONNECTED) TrafficStats.format(uplinkBytes) else "—",
             )
         }
 
@@ -242,20 +301,21 @@ fun DashboardScreen(
         if (vpnState == VpnState.CONNECTED) {
             Row(
                 Modifier.fillMaxWidth()
-                    .background(AppColors.surface2, RoundedCornerShape(10.dp))
+                    .background(AppColors.surface, RoundedCornerShape(10.dp))
                     .border(1.dp, AppColors.line, RoundedCornerShape(10.dp))
-                    .padding(8.dp),
-                horizontalArrangement = Arrangement.Center,
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Icon(Icons.Filled.Shield, null, tint = AppColors.thyme, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.weight(1f))
+                Text("سرور متصل", fontSize = 9.sp, color = AppColors.muted)
+                Spacer(Modifier.width(6.dp))
                 Box(Modifier.size(6.dp).background(AppColors.thyme, CircleShape))
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(6.dp))
                 Text(
                     connectedServerIp ?: "در حال دریافت...",
                     fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = AppColors.text,
                 )
-                Spacer(Modifier.width(6.dp))
-                Text("· سرور متصل", fontSize = 8.5.sp, color = AppColors.muted)
             }
             Spacer(Modifier.height(10.dp))
         }
@@ -274,6 +334,7 @@ fun DashboardScreen(
                 Text("برای تغییر لوکیشن یا تست پینگ ضربه بزنید", fontSize = 8.5.sp, color = AppColors.thyme, fontWeight = FontWeight.Bold)
             }
             Icon(Icons.Filled.KeyboardArrowDown, null, tint = AppColors.muted2, modifier = Modifier.size(16.dp))
+        }
         }
     }
 
@@ -486,5 +547,82 @@ private fun InfoRow(k: String, v: String) {
     ) {
         Text(k, fontSize = 10.5.sp, color = AppColors.muted)
         Text(v, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = AppColors.text)
+    }
+}
+
+@Composable
+private fun StatCell(modifier: Modifier, icon: ImageVector, iconTint: Color, label: String, value: String) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(icon, null, tint = iconTint, modifier = Modifier.size(13.dp))
+            Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = AppColors.muted)
+        }
+        Spacer(Modifier.height(3.dp))
+        Text(value, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AppColors.text)
+    }
+}
+
+@Composable
+private fun VDivider() {
+    Box(Modifier.width(1.dp).height(30.dp).background(AppColors.line))
+}
+
+/**
+ * Rough dot-matrix world map, purely decorative like the approved mockup —
+ * not geographically precise, just enough continent silhouette to read as a
+ * map. Adds a highlighted dot for each server's country when we can place it.
+ */
+@Composable
+private fun WorldMapBackground(modifier: Modifier, serverFlags: List<String>) {
+    val dotColor = AppColors.line
+    val markerColor = AppColors.sky
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        // Rough continent blobs as (centerXFrac, centerYFrac, radiusXFrac, radiusYFrac)
+        val blobs = listOf(
+            0.18f to 0.30f to (0.14f to 0.10f), // North America
+            0.24f to 0.55f to (0.08f to 0.12f), // South America
+            0.48f to 0.24f to (0.06f to 0.07f), // Europe
+            0.50f to 0.45f to (0.08f to 0.14f), // Africa
+            0.68f to 0.28f to (0.16f to 0.14f), // Asia
+            0.82f to 0.62f to (0.07f to 0.06f), // Australia
+        )
+        val spacing = 14f
+        var y = 0f
+        while (y < h) {
+            var x = 0f
+            while (x < w) {
+                val fx = x / w
+                val fy = y / h
+                val inside = blobs.any { (center, radius) ->
+                    val (cx, cy) = center
+                    val (rx, ry) = radius
+                    val dx = (fx - cx) / rx
+                    val dy = (fy - cy) / ry
+                    dx * dx + dy * dy <= 1f
+                }
+                if (inside) {
+                    drawCircle(dotColor, radius = 1.6f, center = Offset(x, y))
+                }
+                x += spacing
+            }
+            y += spacing
+        }
+
+        // Approximate marker positions for common country codes (fraction of width/height).
+        val markerPos = mapOf(
+            "us" to (0.16f to 0.30f), "ca" to (0.16f to 0.20f),
+            "de" to (0.49f to 0.22f), "fr" to (0.46f to 0.24f), "gb" to (0.44f to 0.19f),
+            "nl" to (0.47f to 0.21f), "ru" to (0.62f to 0.16f),
+            "tr" to (0.54f to 0.27f), "ir" to (0.58f to 0.30f), "ae" to (0.60f to 0.34f),
+            "in" to (0.66f to 0.38f), "cn" to (0.72f to 0.28f), "jp" to (0.80f to 0.28f),
+            "au" to (0.82f to 0.62f), "br" to (0.26f to 0.55f),
+        )
+        serverFlags.distinct().forEach { code ->
+            markerPos[code.lowercase()]?.let { (fx, fy) ->
+                drawCircle(markerColor, radius = 4f, center = Offset(fx * w, fy * h))
+            }
+        }
     }
 }

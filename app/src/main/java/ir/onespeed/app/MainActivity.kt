@@ -33,6 +33,7 @@ import ir.onespeed.app.data.ApiResult
 import ir.onespeed.app.data.ApiService
 import ir.onespeed.app.data.ConnectionManager
 import ir.onespeed.app.data.DeviceIdService
+import ir.onespeed.app.data.DiagnosticLog
 import ir.onespeed.app.data.PlanInfo
 import ir.onespeed.app.data.VpnState
 import ir.onespeed.app.ui.AppColors
@@ -84,6 +85,7 @@ class MainActivity : ComponentActivity() {
             }
 
             fun requestVpnPermissionThenConnect(guid: String) {
+                DiagnosticLog.logConnectAttempt(this, guid)
                 val intent = VpnService.prepare(this)
                 if (intent != null) {
                     vpnPermissionLauncher.launch(intent)
@@ -95,7 +97,12 @@ class MainActivity : ComponentActivity() {
             DisposableEffect(Unit) {
                 val receiver = ConnectionManager.registerStatusReceiver(this@MainActivity) { state, err ->
                     vpnState = state
-                    if (err != null) errorMsg = err
+                    if (err != null) {
+                        errorMsg = err
+                        DiagnosticLog.logConnectFailure(this@MainActivity, err)
+                    } else if (state == VpnState.CONNECTED) {
+                        DiagnosticLog.logConnectSuccess(this@MainActivity)
+                    }
                 }
                 statusReceiver = receiver
                 onDispose { unregisterReceiver(receiver) }
@@ -172,6 +179,7 @@ class MainActivity : ComponentActivity() {
                             connectError = errorMsg,
                             onConnectRequest = { guid -> errorMsg = null; requestVpnPermissionThenConnect(guid) },
                             onDisconnect = { ConnectionManager.disconnect(this@MainActivity) },
+                            onSendLog = { DiagnosticLog.shareLogFile(this@MainActivity) },
                             onLogout = {
                                 ConnectionManager.disconnect(this@MainActivity)
                                 DeviceIdService.clearToken(this@MainActivity)

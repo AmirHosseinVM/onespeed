@@ -73,6 +73,8 @@ object NotificationManager {
         lastQueryTime = System.currentTimeMillis()
         totalUplink = 0L
         totalDownlink = 0L
+        MmkvManager.encodeSettings(AppConfig.CACHE_TOTAL_UPLINK, 0L)
+        MmkvManager.encodeSettings(AppConfig.CACHE_TOTAL_DOWNLINK, 0L)
 
         val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
 
@@ -269,6 +271,8 @@ object NotificationManager {
         val directTotal = directUplink + directDownlink
         totalUplink += proxyUplink + directUplink
         totalDownlink += proxyDownlink + directDownlink
+        MmkvManager.encodeSettings(AppConfig.CACHE_TOTAL_UPLINK, totalUplink)
+        MmkvManager.encodeSettings(AppConfig.CACHE_TOTAL_DOWNLINK, totalDownlink)
         val zeroSpeed = proxyTotal + directTotal == 0L
         if (!zeroSpeed || !lastZeroSpeed) {
             val text = StringBuilder()
