@@ -15,9 +15,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowDownward
-import androidx.compose.material.icons.automirrored.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
@@ -182,7 +182,7 @@ fun DashboardScreen(
                     HorizontalDivider()
                     DropdownMenuItem(
                         text = { Text("ارسال گزارش خطا", color = AppColors.sky, fontWeight = FontWeight.Bold) },
-                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, null, tint = AppColors.sky, modifier = Modifier.size(16.dp)) },
+                        leadingIcon = { Icon(Icons.Filled.Send, null, tint = AppColors.sky, modifier = Modifier.size(16.dp)) },
                         onClick = { menuOpen = false; onSendLog() },
                     )
                     HorizontalDivider()
@@ -286,12 +286,12 @@ fun DashboardScreen(
             )
             VDivider()
             StatCell(
-                Modifier.weight(1f), Icons.AutoMirrored.Filled.ArrowDownward, AppColors.sky,
+                Modifier.weight(1f), Icons.Filled.ArrowDownward, AppColors.sky,
                 "دانلود", if (vpnState == VpnState.CONNECTED) TrafficStats.format(downlinkBytes) else "—",
             )
             VDivider()
             StatCell(
-                Modifier.weight(1f), Icons.AutoMirrored.Filled.ArrowUpward, AppColors.thyme,
+                Modifier.weight(1f), Icons.Filled.ArrowUpward, AppColors.thyme,
                 "آپلود", if (vpnState == VpnState.CONNECTED) TrafficStats.format(uplinkBytes) else "—",
             )
         }
